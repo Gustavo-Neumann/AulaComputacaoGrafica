@@ -3,7 +3,7 @@
 #include <GLFW\glfw3.h>
 #include <stdio.h>
 
-const GLint WIDTH = 600, HEITH = 800;
+const GLint WIDTH = 800, HEITH = 600;
 
 int main()
 {
@@ -31,13 +31,24 @@ int main()
     glfwMakeContextCurrent(window);
 
     glewExperimental = GL_TRUE;
-    if (glewInit() != GLEW_OK) {
+    if (glewInit() != GLEW_OK) 
+    {
         printf("DEU RUIM NO GLEW");
         glfwDestroyWindow(window);
         glfwTerminate();
         return 1; 
     }
 
+    glViewport(0, 0, bufferWidth, bufferHeight);
+    while (!glfwWindowShouldClose(window))
+    {
+        //cria um evento
+        glfwPollEvents();
+        //define a cor do fundo
+        glClearColor(0.0f, 100.0f,03.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glfwSwapBuffers(window);
 
-
+    }
+    
 }
