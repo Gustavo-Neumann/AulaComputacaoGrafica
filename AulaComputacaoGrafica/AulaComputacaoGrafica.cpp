@@ -1,20 +1,26 @@
 #include <iostream>
-#include <GL\glew.h>
-#include <GLFW\glfw3.h>
+#include "GL\glew.h"
+#include "GLFW\glfw3.h"
 #include <stdio.h>
 #include <string.h>
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/type_ptr.hpp"
 
 const GLint WIDTH = 800, HEITH = 600;
-GLuint VAO, VBO, shaderProgram;
+GLuint VAO, VBO, program, IBO;
 
 //Vertex Shader
 static const char* vShader = "                  \n\
 #version 330                                    \n\
                                                 \n\
-layout(location=0) in vec2 pos;                 \n\
+layout(location=0) in vec3 pos;                 \n\
+uniform mat4 model;								\n\
+out vec4 vColor;                                 \n\
                                                 \n\
 void main(){                                    \n\
-  gl_Position = vec4(pos.x, pos.y, 0.0, 1.0);   \n\
+  gl_Position = model * vec4(pos, 1.0);         \n\
+  vColor = vec4(clamp(pos, 0.0f, 1.0f), 1.0f);   \n\
 }";
 
 //Fragment Shader
@@ -22,24 +28,36 @@ static const char* fShader = "                  \n\
 #version 330                                    \n\
                                                 \n\
 uniform vec3 triangleColor;                     \n\
-                                                \n\
+in vec4 vColor;                                  \n\
 out vec4 color;                                 \n\
                                                 \n\
 void main(){                                    \n\
-  color = vec4(triangleColor, 1.0);             \n\
+  color = vColor;                               \n\
 }";
 
 void CreateTriagle() {
     //1. Definir os pontos dos vértices
     GLfloat vertices[] = {
-        -0.5f, -0.5f, //Vértice 1 (x, y)
-        0.5f, -0.5f,  //Vértice 2 (x, y)
-        0.0f, 0.5f,   //Vértice 3 (x, y)
+        -1.0f, -1.0f, 0.0f, //Vértice 1 (x, y)
+        0.0f, 1.0f, 0.0f,   //Vértice 2 (x, y)
+        1.0f, -1.0f, 0.0f,	//Verice
+        0.0f, 0.0f, 1.0f    //Vértice 3 (x, y)
+    };
+
+    GLuint indices[] = {
+        0, 1, 2,
+        0, 1, 3,
+        0, 2, 3,
+        1, 2, 3
     };
 
     //VAO
     glGenVertexArrays(1, &VAO); //Gera um VAO ID
     glBindVertexArray(VAO); //Atribuindo o ID ao VAO
+
+    glGenBuffers(1, &IBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     //Carregar os dados de vértice para a placa de vídeo
     //Vertex Buffer Object: VBO
@@ -52,14 +70,14 @@ void CreateTriagle() {
     //GL_STREAM_DRAW : Os dados do vértice serão carregados uma vez e desenhados uma vez.
 
     //Vertex Attribute Pointer - Atributos dos dados na memória
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0); //0: shader location | 2: numero de valores de vertice (x,y) | GL_FLOAT: tipo dos valores
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0); //0: shader location | 2: numero de valores de vertice (x,y) | GL_FLOAT: tipo dos valores
     //GL_FALSE: normalizado | 0: pular elemento (cor) | 0: offset
-//Vertex Attribute Pointer Enable
+    //Vertex Attribute Pointer Enable
     glEnableVertexAttribArray(0); //0: shader location
 
     //Limpar o Buffer
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-
     //Limpar o Vertex Array
     glBindVertexArray(0);
 }
@@ -96,35 +114,35 @@ void AddShader(GLuint program, const char* shaderCode, GLenum shaderType) {
 
 void CompileShaders() {
     //1.0 Cria o programa
-    shaderProgram = glCreateProgram(); //Inicia o programa
-    if (!shaderProgram) {
+    program = glCreateProgram(); //Inicia o programa
+    if (!program) {
         printf("Erro ao criar o Shader Program");
         return;
     }
 
     //2.0 Compila o Vertex Shader
-    AddShader(shaderProgram, vShader, GL_VERTEX_SHADER); //Adiciona o Vertex Shader ao programa
+    AddShader(program, vShader, GL_VERTEX_SHADER); //Adiciona o Vertex Shader ao programa
     //3.0 Compila o Fragment Shader
-    AddShader(shaderProgram, fShader, GL_FRAGMENT_SHADER); //Adiciona o Vertex Shader ao programa
+    AddShader(program, fShader, GL_FRAGMENT_SHADER); //Adiciona o Vertex Shader ao programa
 
     //4.0 Cria o link do programa
-    glLinkProgram(shaderProgram); //Criar o link do programa na GPU
+    glLinkProgram(program); //Criar o link do programa na GPU
 
     //5.0 Tratamento de erros
     GLint result = 0;
     GLchar eLog[1024] = { 0 };
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &result); //Verifica o resultado
+    glGetProgramiv(program, GL_LINK_STATUS, &result); //Verifica o resultado
     if (!result) {
-        glGetProgramInfoLog(shaderProgram, sizeof(eLog), NULL, eLog);
+        glGetProgramInfoLog(program, sizeof(eLog), NULL, eLog);
         printf("Erro ao linkar o programa: '%s'\n", eLog);
         return;
     }
 
     //6.0 Validação se o programa está rodando
-    glValidateProgram(shaderProgram); //Validação do programa
-    glGetProgramiv(shaderProgram, GL_VALIDATE_STATUS, &result); //Verifica o resultado
+    glValidateProgram(program); //Validação do programa
+    glGetProgramiv(program, GL_VALIDATE_STATUS, &result); //Verifica o resultado
     if (!result) {
-        glGetProgramInfoLog(shaderProgram, sizeof(eLog), NULL, eLog);
+        glGetProgramInfoLog(program, sizeof(eLog), NULL, eLog);
         printf("Erro ao validar o programa: '%s'\n", eLog);
         return;
     }
@@ -163,6 +181,7 @@ int main()
         glfwTerminate();
         return 1; 
     }
+    glEnable(GL_DEPTH_TEST);
 
     glViewport(0, 0, bufferWidth, bufferHeight);
     CreateTriagle();
@@ -174,13 +193,18 @@ int main()
         glfwPollEvents();
 
         //Clear Window (100% = 255)
-        glClearColor(0.0f, 1.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         //Desenhar o triangulo
-        glUseProgram(shaderProgram); //Busca o programa que está com o shader (triangulo)
+        glUseProgram(program); //Busca o programa que está com o shader (triangulo)
         glBindVertexArray(VAO); //Bind o VAO
-        GLint uniColor = glGetUniformLocation(shaderProgram, "triangleColor"); //procura a entrada chamada triangleColor
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+        glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+        //GLint uniColor = glGetUniformLocation(program, "triangleColor"); //procura a entrada chamada triangleColor
         //float r = (float)rand()/RAND_MAX;
         //float g = (float)rand()/RAND_MAX;
         //float b = (float)rand()/RAND_MAX;
@@ -190,8 +214,12 @@ int main()
         //float time = std::chrono::duration_cast<std::chrono::duration<float>>(t_now - t_start).count();
         //glUniform3f(uniColor, (sin(time * 4.0f) + 1.0f) / 2.0f, 0.0f, 0.0f);
 
-        glUniform3f(uniColor, 1.0f, 0.0f, 0.0f); //atualiza o valor da entrada com a cor vermelha
-        glDrawArrays(GL_TRIANGLES, 0, 3); //Desenha um triangulo | 0: Array index | 2: Número de pontos (vértices)
+        glm::mat4 model(1.0f);
+
+        //glUniform3f(uniColor, 1.0f, 0.0f, 0.0f); //atualiza o valor da entrada com a cor vermelha
+        GLuint uniModel = glGetUniformLocation(program, "model");
+        glUniformMatrix4fv(uniModel, 1, GL_FALSE, glm::value_ptr(model));
+        //glDrawArrays(GL_TRIANGLES, 0, 3); //Desenha um triangulo | 0: Array index | 2: Número de pontos (vértices)
         glBindVertexArray(0);
         glUseProgram(0); //remove o programa da memória
 
