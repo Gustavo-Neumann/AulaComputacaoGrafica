@@ -1,164 +1,243 @@
+#include <stdio.h>
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 #include <iostream>
-#include "GL/glew.h"
-#include "GLFW/glfw3.h"
+#include <string.h>
+#include <time.h>
+#include <chrono>
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
+#include <vector>
+#include "Mesh.h"
 
-GLuint VAO, VBO, IBO, programa;
+const GLint WIDTH = 800, HEIGHT = 600;
+GLuint shaderProgram;
 
+std::vector<Mesh*> listMesh;
 
 //Vertex Shader
-static const char* vShader = "                                \n\
-#version 330                                                  \n\
-                                                              \n\
-layout(location=0) in vec3 pos;                               \n\
-uniform mat4 model;                                           \n\
-out vec4 vColor;                                              \n\
-                                                              \n\
-void main(){                                                  \n\
-	gl_Position = model * vec4(pos, 1.0);                     \n\
-    vColor = vec4(clamp(pos, 0.0f, 1.0f), 1.0f);              \n\
+static const char* vShader = "                  \n\
+#version 330                                    \n\
+                                                \n\
+layout(location=0) in vec3 pos;                 \n\
+uniform mat4 model;								\n\
+out vec4 vColor;                                \n\
+                                                \n\
+void main(){                                    \n\
+  gl_Position = model * vec4(pos, 1.0);         \n\
+  vColor = vec4(clamp(pos, 0.0f, 1.0f), 1.0f);  \n\
 }";
 
-static const char* fShader = "                                \n\
-#version 330                                                  \n\
-                                                              \n\
-uniform vec3 triangleColor;                                   \n\
-in vec4 vColor;                                               \n\
-out vec4 color;                                               \n\
-                                                              \n\
-void main(){                                                  \n\
-	color = vColor;                                           \n\
+//Fragment Shader
+static const char* fShader = "                  \n\
+#version 330                                    \n\
+                                                \n\
+uniform vec3 triangleColor;                     \n\
+in vec4 vColor;                                 \n\
+out vec4 color;                                 \n\
+                                                \n\
+void main(){                                    \n\
+  color = vColor;                               \n\
 }";
 
-void CriaTriangulos() {
-	GLfloat vertices[] = {
-		//x , y		
-		-1.0f, -1.0f, 0.0f,         //Vertice 0 (Preto)
-		0.0f, 1.0f, 0.0f,           //Vertice 1 (Verde)
-		1.0f, -1.0f, 0.0f,          //Vertice 2 (Vermelho)
-		0.0f, 0.0f, 1.0f            //Vertice 3 (Azul)
+void CreateTriagle() {
+	//1. Definir os pontos dos vértices
+	GLfloat verticesTri[] = {
+		-1.0f, -1.0f, 0.0f, //Vértice 1 (x, y)
+		0.0f, 1.0f, 0.0f,   //Vértice 2 (x, y)
+		1.0f, -1.0f, 0.0f,	//Verice
+		0.0f, 0.0f, 1.0f    //Vértice 3 (x, y)
 	};
 
-	GLuint indices[] = {
+	GLuint indicesTri[] = {
 		0, 1, 2,
-		1, 2, 3,
 		0, 1, 3,
-		0, 2, 3
+		0, 2, 3,
+		1, 2, 3
 	};
 
-	glGenVertexArrays(1, &VAO); //Cria o VAO
-	glBindVertexArray(VAO); //Coloca o VAO em contexto
+	GLfloat verticesQuad[] = {
+		-1.0f, -1.0f, 0.0f,
+		-1.0f, 1.0f, 0.0f,
+		1.0f, 1.0f, 0.0f,
+		1.0f, -1.0f, 0.0f,
+		-1.0f, -1.0f, 1.0f,
+		-1.0f, 1.0f, 1.0f,
+		1.0f, 1.0f, 1.0f,
+		1.0f, -1.0f, 1.0f,
+	};
 
-	glGenBuffers(1, &IBO); //Cria o IBO
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO); //Coloca o IBO em contexto
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW); //Explica o valor do Array
+	GLuint indicesQuad[] = {
+		0, 1, 2, 3,
+		0, 3, 4, 6,
+		4, 5, 6, 7,
+		1, 2, 5, 7,
+		2, 3, 4, 5,
+		0, 1, 6, 7
+	};
 
-	glGenBuffers(1, &VBO); //Cria o VBO
-	glBindBuffer(GL_ARRAY_BUFFER, VBO); //Coloca o VBO em contexto
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); //Explica o valor do Array
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0); //Explica os valores de x e y
-	glEnableVertexAttribArray(0);
+	//VAO
+	Mesh* triangulo1 = new Mesh();
+	triangulo1->CreateMesh(verticesTri, sizeof(verticesTri), indicesTri, sizeof(indicesTri));
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); //remover do contexto o IBO
-	glBindBuffer(GL_ARRAY_BUFFER, 0); //remover do contexto o VBO
-	glBindVertexArray(0); //remover do contexto o VAO
+	listMesh.push_back(triangulo1);
+
+	Mesh* cubo = new Mesh();
+	cubo->CreateMesh(verticesQuad, sizeof(verticesQuad), indicesQuad, sizeof(indicesQuad));
+
+	listMesh.push_back(cubo);
 }
 
+void AddShader(GLuint program, const char* shaderCode, GLenum shaderType) {
+	//Começamos a compilar cada shader
+	//1. Criar um shader
+	GLuint _shader = glCreateShader(shaderType);
 
-void CompilaShader() {
-	programa = glCreateProgram(); //Cria um programa
-	GLuint _vShader = glCreateShader(GL_VERTEX_SHADER); //Cria um shader
-	GLuint _fShader = glCreateShader(GL_FRAGMENT_SHADER); //Cria um shader
+	//2. Atribui o código do GLSL para o shader
+		//2.1 Guarda a variavel localmente (converte char para GLchar*)
+	const GLchar* code[1];
+	code[0] = shaderCode;
 
-	//Gambiarra para converter Char em GLChar
-	const GLchar* vCode[1];
-	const GLchar* fCode[1];
-	vCode[0] = vShader; //C?digo do vShader
-	fCode[0] = fShader; //C?digo do fShader
+	//2.2 Anexando o código a shader
+	glShaderSource(_shader, 1, code, NULL); //1: numero de códigos | NULL: final da string onde encontrar NULL
 
-	glShaderSource(_vShader, 1, vCode, NULL); //associa o shader ao codigo
-	glCompileShader(_vShader); //Compila o shader
-	glAttachShader(programa, _vShader); //Adiciona o shader ao programa
+	//3. Compila o shader
+	glCompileShader(_shader); //compilar o shader
 
-	glShaderSource(_fShader, 1, fCode, NULL); //associa o shader ao codigo
-	glCompileShader(_fShader); //Compila o shader
-	glAttachShader(programa, _fShader); //Adiciona o shader ao programa
+	//4. Tratamento de erros de compilação
+	GLint result = 0;
+	GLchar eLog[1024] = { 0 };
+	glGetShaderiv(_shader, GL_COMPILE_STATUS, &result); //Verifica o resultado
+	if (!result) {
+		glGetProgramInfoLog(_shader, sizeof(eLog), NULL, eLog);
+		printf("Erro ao compilar o %d shader: '%s'\n", shaderType, eLog);
+		return;
+	}
 
-	glLinkProgram(programa); //Adiciona o programa
-
+	//5. Adiciona o shader ao programa (recebido como parâmetro)
+	glAttachShader(program, _shader); //adiciona o shader ao programa
 }
 
-int main() {
+void CompileShaders() {
+	//1.0 Cria o programa
+	shaderProgram = glCreateProgram(); //Inicia o programa
+	if (!shaderProgram) {
+		printf("Erro ao criar o Shader Program");
+		return;
+	}
+
+	//2.0 Compila o Vertex Shader
+	AddShader(shaderProgram, vShader, GL_VERTEX_SHADER); //Adiciona o Vertex Shader ao programa
+	//3.0 Compila o Fragment Shader
+	AddShader(shaderProgram, fShader, GL_FRAGMENT_SHADER); //Adiciona o Vertex Shader ao programa
+
+	//4.0 Cria o link do programa
+	glLinkProgram(shaderProgram); //Criar o link do programa na GPU
+
+	//5.0 Tratamento de erros
+	GLint result = 0;
+	GLchar eLog[1024] = { 0 };
+	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &result); //Verifica o resultado
+	if (!result) {
+		glGetProgramInfoLog(shaderProgram, sizeof(eLog), NULL, eLog);
+		printf("Erro ao linkar o programa: '%s'\n", eLog);
+		return;
+	}
+
+	//6.0 Validação se o programa está rodando
+	glValidateProgram(shaderProgram); //Validação do programa
+	glGetProgramiv(shaderProgram, GL_VALIDATE_STATUS, &result); //Verifica o resultado
+	if (!result) {
+		glGetProgramInfoLog(shaderProgram, sizeof(eLog), NULL, eLog);
+		printf("Erro ao validar o programa: '%s'\n", eLog);
+		return;
+	}
+}
+
+int main()
+{
+	//GLEW = GERENCIADOR DE PACOTES DO OPENGL
+	//GLFW = GERENCIADOR DE JANELAS
+	auto t_start = std::chrono::high_resolution_clock::now();
+
 	if (!glfwInit()) {
-		printf("GLFW: Nao pode ser iniciado");
+		printf("Não funcionou o GLFW");
 		return 1;
 	}
 
-	GLFWwindow* mainWindow = glfwCreateWindow(800, 600, "Ola Mundo!", NULL, NULL);
-	if (!mainWindow) {
-		printf("GLFW: Nao foi poss?vel criar a janela");
+	//definindo as versoes min e max do glfw
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+
+	//defini para so usar o basico do opengl
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+	//compatibilidade entre funcoes antigas
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "computacao-grafica", NULL, NULL);
+
+	if (!window) {
+		printf("Janela não foi aberta");
 		glfwTerminate();
 		return 1;
 	}
 
 	int bufferWidth, bufferHeight;
-	glfwGetFramebufferSize(mainWindow, &bufferWidth, &bufferHeight);
+	glfwGetFramebufferSize(window, &bufferWidth, &bufferHeight);
 
-	glfwMakeContextCurrent(mainWindow);
+	//define que eh esta janela que estamos trabalhando
+	glfwMakeContextCurrent(window);
+
+	//usa as funcoes dos drives da sua placa de video
+	glewExperimental = GL_TRUE;
 
 	if (glewInit() != GLEW_OK) {
-		printf("Glew: Nao pode ser iniciado!");
-		glfwDestroyWindow(mainWindow);
+		printf("Nao foi iniciado o GLEW");
 		glfwTerminate();
+		glfwDestroyWindow(window);
 		return 1;
 	}
 	glEnable(GL_DEPTH_TEST);
 
 	glViewport(0, 0, bufferWidth, bufferHeight);
 
-	CriaTriangulos();
-	CompilaShader();
+	//Criar um triangulo
+	CreateTriagle();
+	CompileShaders();
 
-	//Variaveis para controle da movimentação do triangulo
-	bool direction = true, sizeDirection = true, angleDirection = true;
-	//true=direita e false=esquerda
+	bool direction = true, sizeDirection = true, angleDirection = true;//true = direita / false = esquerda
 	float triOffset = 0.0f, maxOffset = 0.7f, minOffset = -0.7f, incOffset = 0.01f;
-	float size = 0.4f, maxSize = 0.7f, minSize = -0.7f, incSize = 0.01f;
+	float size = 0.0f, maxSize = 0.7f, minSize = -0.7f, incSize = 0.01f;
 	float angle = 0.0f, maxAngle = 360.0f, minAngle = -1.0f, incAngle = 0.5f;
 
-	while (!glfwWindowShouldClose(mainWindow)) {
-
-		//Habilitar os eventos de usuario
+	//Loop until the window close
+	while (!glfwWindowShouldClose(window)) {
+		//Get + Handle user input events
 		glfwPollEvents();
 
-		glClearColor(1.0f, 0.75f, 0.79f, 1.0f);
+		//Clear Window (100% = 255)
+		glClearColor(0.52f, 0.36f, 0.87f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		//Desenha o triangulo
-		glUseProgram(programa);
-		glBindVertexArray(VAO);
+		//Desenhar o triangulol
+		glUseProgram(shaderProgram); //Busca o programa que está com o shader (triangulo)
+		listMesh[0]->RenderMesh();
 
-		/*
-		* Desenha o triangulo 3D
-		*/
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO); //Coloca o IBO em contexto
-		glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); //remover do contexto o IBO
+		GLint uniColor = glGetUniformLocation(shaderProgram, "triangleColor"); //procura a entrada chamada triangleColor
 
-		/*
-		* Alterando a cor do triangulo
-		*/
-		GLuint uniColor = glGetUniformLocation(programa, "triangleColor");
 		float r = (float)rand() / RAND_MAX;
 		float g = (float)rand() / RAND_MAX;
 		float b = (float)rand() / RAND_MAX;
-		glUniform3f(uniColor, r, g, b);
+		glUniform3f(uniColor, r, g, b); //atualiza o valor da entrada com a cor vermelha
 
-		/*
-		* Mover nosso triangulo
-		*/
+		/*auto t_now = std::chrono::high_resolution_clock::now();
+		float time = std::chrono::duration_cast<std::chrono::duration<float>>(t_now - t_start).count();
+		glUniform3f(uniColor, (sin(time * 4.0f) + 1.0f) / 2.0f, 0.0f, 0.0f);*/
+
+		//Mover nosso triangulo
+
 		if (triOffset >= maxOffset || triOffset <= minOffset)
 			direction = !direction;
 		triOffset += direction ? incOffset : incOffset * -1;
@@ -171,28 +250,43 @@ int main() {
 			angleDirection = !angleDirection;
 		angle += angleDirection ? incAngle : incAngle * -1;
 
-		//criar uma matriz 4x4 (1.0f)
+		//criar matriz
 		glm::mat4 model(1.0f);
 
 		//Movimentações do triangulo
-		//model = glm::translate(model, glm::vec3(triOffset, triOffset, 0.0f));
+		model = glm::translate(model, glm::vec3(triOffset, triOffset, 0.0f));
 
 		//Tamanho do triangulo
 		model = glm::scale(model, glm::vec3(0.4, 0.4, 0.4));
 
 		//Rotação
-		model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 1.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
 
-		GLuint uniModel = glGetUniformLocation(programa, "model");
+		GLint uniModel = glGetUniformLocation(shaderProgram, "model");
 		glUniformMatrix4fv(uniModel, 1, GL_FALSE, glm::value_ptr(model));
 
-		glBindVertexArray(0);
-		glUseProgram(0);
+		listMesh[1]->RenderMesh();
 
-		glfwSwapBuffers(mainWindow);
+		glm::mat4 model2(1.0f);
+
+		model2 = glm::translate(model2, glm::vec3(-triOffset, -triOffset, 0.0f));
+
+		//Tamanho do triangulo
+		model2 = glm::scale(model2, glm::vec3(0.4, 0.4, 0.4));
+
+		//Rotação
+		model2 = glm::rotate(model2, glm::radians(-angle), glm::vec3(0.0f, 1.0f, 0.0f));
+
+		uniModel = glGetUniformLocation(shaderProgram, "model");
+		glUniformMatrix4fv(uniModel, 1, GL_FALSE, glm::value_ptr(model2));
+
+		//glUniform3f(uniColor, 1.0f, 0.0f, 0.0f); //atualiza o valor da entrada com a cor vermelha
+		//glDrawArrays(GL_TRIANGLES, 0, 3); //Desenha um triangulo | 0: Array index | 2: Número de pontos (vértices)
+		glBindVertexArray(0);
+		glUseProgram(0); //remove o programa da memória
+
+		glfwSwapBuffers(window);
 	}
 
-	glfwDestroyWindow(mainWindow);
-	glfwTerminate();
 	return 0;
 }
