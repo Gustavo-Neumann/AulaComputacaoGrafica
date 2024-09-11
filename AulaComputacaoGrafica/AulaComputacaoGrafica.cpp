@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -58,25 +59,36 @@ void CreateTriagle() {
 	};
 
 	GLfloat verticesQuad[] = {
-		-1.0f, -1.0f, 0.0f,
-		-1.0f, 1.0f, 0.0f,
-		1.0f, 1.0f, 0.0f,
-		1.0f, -1.0f, 0.0f,
 		-1.0f, -1.0f, 1.0f,
-		-1.0f, 1.0f, 1.0f,
-		1.0f, 1.0f, 1.0f,
 		1.0f, -1.0f, 1.0f,
+		1.0f, 1.0f, 1.0f,
+		-1.0f, 1.0f, 1.0f,
+		-1.0f, -1.0f, -1.0f,
+		1.0f, -1.0f, -1.0f,
+		1.0f, 1.0f, -1.0f,
+		-1.0f, 1.0f, -1.0f,
 	};
 
 	GLuint indicesQuad[] = {
-		0, 1, 2, 3,
-		0, 3, 4, 6,
-		4, 5, 6, 7,
-		1, 2, 5, 7,
-		2, 3, 4, 5,
-		0, 1, 6, 7
+		// Frente
+		0, 1, 2,
+		2, 3, 0,
+		// Trás
+		4, 5, 6,
+		6, 7, 4,
+		// Esquerda
+		0, 3, 7,
+		7, 4, 0,
+		// Direita
+		1, 2, 6,
+		6, 5, 1,
+		// Cima
+		3, 2, 6,
+		6, 7, 3,
+		// Baixo
+		0, 1, 5,
+		5, 4, 0
 	};
-
 	//VAO
 	Mesh* triangulo1 = new Mesh();
 	triangulo1->CreateMesh(verticesTri, sizeof(verticesTri), indicesTri, sizeof(indicesTri));
@@ -260,7 +272,7 @@ int main()
 		model = glm::scale(model, glm::vec3(0.4, 0.4, 0.4));
 
 		//Rotação
-		model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 1.0f, 0.0f));
 
 		GLint uniModel = glGetUniformLocation(shaderProgram, "model");
 		glUniformMatrix4fv(uniModel, 1, GL_FALSE, glm::value_ptr(model));
@@ -275,7 +287,7 @@ int main()
 		model2 = glm::scale(model2, glm::vec3(0.4, 0.4, 0.4));
 
 		//Rotação
-		model2 = glm::rotate(model2, glm::radians(-angle), glm::vec3(0.0f, 1.0f, 0.0f));
+		model2 = glm::rotate(model2, glm::radians(-angle), glm::vec3(1.0f, 1.0f, 0.0f));
 
 		uniModel = glGetUniformLocation(shaderProgram, "model");
 		glUniformMatrix4fv(uniModel, 1, GL_FALSE, glm::value_ptr(model2));
